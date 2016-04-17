@@ -69,6 +69,15 @@ make_classifier_model <- function(predictor, feature_set, class_labels, classify
   return(model)
 }
 
+############################
+# create data.frame easily #
+############################
+cbind.all <- function (...) {
+  nm <- list(...)
+  nm <- lapply(nm, as.matrix)
+  n <- max(sapply(nm, nrow))
+  do.call(cbind, lapply(nm, function(x) rbind(x, matrix(, n - nrow(x), ncol(x)))))
+}
 
 #################################################
 # cross validation to select number of features #
@@ -77,7 +86,4 @@ feature_selection_methods <- c("t.test","wilcox.test","entropy","pca","random")
 classifying_algorithms <- c("knn","nb","rf")
 combo_folds <- createFolds(combo[,3:2836], k = 10)
 filter_feature_selection()
-
-
-
 
