@@ -1,6 +1,6 @@
 library(ggplot2)
 library(caret)
-
+setwd("/Users/Harme/Dropbox/b4tm/CATS/")
 Distance = function(data)
 {
   v = vector(mode="numeric", length=ncol(data))
