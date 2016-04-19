@@ -1,48 +1,7 @@
 library(ggplot2)
 library(caret)
 setwd("/Users/Harme/Dropbox/b4tm/CATS/")
-Distance = function(data)
-{
-  v = vector(mode="numeric", length=ncol(data))
-  for (c in 4:ncol(data)) {
-    v[c] = sum(abs(data[,c]-data[,c-1]))
-  }
-  return (v)
-}
 
-# Find a feature
-FindRegion = function(train.call, chromosome, location)
-{
-  return(train.call[(train.call$Chromosome == chromosome) & (train.call$Start <= location) & (train.call$End >= location),1:5])
-}
-#Feature SELECTION
-FeatureSelection = function(data)
-{
-  varImp(data, method="rfe")
-}
-
-fitControl = trainControl(
-  method = "repeatedcv",
-  number = 10,
-  #            classProbs = TRUE,
-  repeats = 3)
-
-fit = train(merged[1:50,3:length(merged)], merged$Subgroup[1:50],
-            method = "nb",
-            trControl = fitControl,
-            tuneLength = 10)
-fit
-
-acc <- sum(pt == merged$Subgroup[31:100]) / length(merged$Subgroup[31:100])
-acc
-
-pt <- predict.train(fit, merged[31:100,3:length(merged)])
-predict.train(fit, testX=merged[31:100,3:length(merged)], testY = merged[31:100,2])
-?predict.train
-varImp(fit, useModel = T, scale=F)
-?varImp
-merged[,3:length(merged)]
-#
 # The function 'Validate' performs training using double cross validation to reliably determine the
 # accuracy of a predictor trained using the provided data and corresponding classes.
 #
@@ -62,8 +21,21 @@ validation.call = read.delim("validation_call.txt")
 # Merge data and classes
 merged = merge(train.clinical, t(train.call[,-1:-4]), by.x="Sample", by.y="row.names")
 val = as.data.frame(t(validation.call[,-1:-4]))
+her2_less <- merged[merged$Subgroup != 'HER2+',]
+classes = factor(merged[merged$Subgroup != 'HER2+', 'Subgroup'])
+results = Validate(her2_less[,3:2836], 
+                   classes, 
+                   outer.fold = 3,
+                   inner.fold = 3,
+                   method = "rf",
+                   filter_method = c("rfe","knowledge"), 
+                   knowledge_features = v_cols)
 
-results.knowledge = Validate(merged[,3:2836], merged$Subgroup, outer.fold = 3,inner.fold = 3,method = "pam")
+
+(1*0.32) +  (mean(c(results$MethodAccuracy$`1_knowledge`, results$MethodAccuracy$`2_knowledge`, results$MethodAccuracy$`3_knowledge`)) * 0.68)
+(1*0.32) + (mean(c(results$MethodAccuracy$`1_rfe`, results$MethodAccuracy$`2_rfe`, results$MethodAccuracy$`3_rfe`)) * 0.68)
+
+names((her2_less[,3:2836]))
 merged[,predictors(lmProfile)]
 results$AverageAccuracy
 predicted_val <- predict(results$fit,newdata = val)
@@ -78,3 +50,5 @@ knowledge.2 <- c()
 for(i in knowledge){
   knowledge.2 <- c(knowledge.2, paste("V",as.character(i),sep = ""))
 }
+blub <- her2_less[,3:2836]
+blub[,knowledge.2]

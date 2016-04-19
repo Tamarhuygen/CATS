@@ -108,4 +108,4 @@ v_cols <- paste("V",cols,sep = "")
 # co<-append(co, regionfinder(8,22027877,22045326))
 # print(co)
 
-v_cols <- paste("V",co,sep = "")
+# v_cols <- paste("V",co,sep = "")

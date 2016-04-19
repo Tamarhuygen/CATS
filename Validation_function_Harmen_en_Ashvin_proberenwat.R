@@ -1,4 +1,13 @@
-Validate = function(data, classes, method = "knn", outer.fold = 3, outer.repeats=1, inner.fold = 10, inner.repeats = 1, verbose = TRUE)
+Validate = function(data, 
+                    classes, 
+                    method = "knn", 
+                    outer.fold = 3, 
+                    outer.repeats=1, 
+                    inner.fold = 10, 
+                    inner.repeats = 1, 
+                    verbose = FALSE, 
+                    filter_method,
+                    knowledge_features)
 {
   cat(sprintf("Training and validation process using method '%s'", method))
   
@@ -8,9 +17,10 @@ Validate = function(data, classes, method = "knn", outer.fold = 3, outer.repeats
   # Store predicted accuracy and actual accuracy for all validation runs
   # Return results including average accuracy and standard deviation
   results = list()
-  
   results.train.accuracy = vector('numeric', length = outer.repeats * outer.fold)
   results.validate.accuracy = vector('numeric', length = outer.repeats * outer.fold)
+  results.method.accuracy <- list()
+  
   
   for (run in sequence(outer.repeats)){
     # Create separate folds for training and validation
@@ -18,7 +28,7 @@ Validate = function(data, classes, method = "knn", outer.fold = 3, outer.repeats
     
     for (fold in sequence(outer.fold)){
       if (verbose) cat(sprintf("\nRun %d of %d, fold %d of %d\n", run, outer.repeats, fold, outer.fold))
-      
+      for(fm in filter_method){
       # Select the train and validation folds for this run/fold
       validation.fold = outer.folds[[fold]]
       train.data = data[-validation.fold,]
@@ -26,23 +36,25 @@ Validate = function(data, classes, method = "knn", outer.fold = 3, outer.repeats
       validation.data = data[validation.fold,]
       validation.classes = classes[validation.fold]      
       
-#       subsets <- seq(10,100,10)
-#       ctrl <- rfeControl(functions = rfFuncs,
-#                          method = "repeatedcv",
-#                          repeats = 1,
-#                          verbose = F)
-#       
-#       profile <- rfe(train.data, train.classes,
-#                        sizes = subsets,
-#                        rfeControl = ctrl)
-#       best_features <- predictors(profile)
-      best_features <- knowledge.2
-      # Calculate predicted accuracy
+      
+      if(fm =="rfe"){
+      subsets <- seq(10,100,10)
+      ctrl <- rfeControl(functions = rfFuncs,
+                         method = "repeatedcv",
+                         repeats = 1,
+                         verbose = F)
+      
+    profile <- rfe(train.data, train.classes,
+                       sizes = subsets,
+                       rfeControl = ctrl)
+      best_features <- predictors(profile)
+      }
+      if(fm=="knowledge"){
+        best_features <- knowledge_features
+      }
       
       
-      
-      
-      
+      # Calculate predicted accuracy  
       # Train the model with the train data and classes using
       # selected method
       fitControl = trainControl(
@@ -51,11 +63,13 @@ Validate = function(data, classes, method = "knn", outer.fold = 3, outer.repeats
         #            classProbs = TRUE,
         repeats = inner.repeats)
       train.data <- train.data[,best_features]
+      
+    
       fit = train(train.data, train.classes,
                   method = method,
                   trControl = fitControl,
                   tuneLength = 10)
-      
+
      
       print("done training")
       performance = fit$results[row.names(fit$finalModel$tuneValue),]
@@ -70,20 +84,26 @@ Validate = function(data, classes, method = "knn", outer.fold = 3, outer.repeats
       # if (verbose) print(predict.probs)
       
       results.validate.accuracy[i] = cm$overall['Accuracy']
-      print('##################')
-      print(cm$overall['Accuracy'])
-      print(fit)
-      print('##################')
+#       print('##################')
+#       print(cm$overall['Accuracy'])
+#       print(fit)
+#       print('##################')
       if (fold == 1) results$fit = fit
-      if (fold > 1) if (max(fit$results$Accuracy) > max(results$fit$results$Accuracy) ) results$fit = fit
-
+      if (fold > 1) if (results.validate.accuracy[i-1] < cm$overall['Accuracy'] ) results$fit = fit
+      
+      print('################## RESULTS ##################')
+      results.method.accuracy[paste(fold,fm,sep = "_")] <- results.validate.accuracy[i]
+      print(paste(fold,fm,results.validate.accuracy[i],length(best_features)))
+      
     }
-  }
+    }
+      }
   
   max(results$fit$results$Accuracy)
   
   print("calculating results")
   print(results.validate.accuracy)
+  results$MethodAccuracy = results.method.accuracy
   results$AverageAccuracy = mean(results.validate.accuracy)
   results$StdDevAccuracy = sd(results.validate.accuracy)
   
