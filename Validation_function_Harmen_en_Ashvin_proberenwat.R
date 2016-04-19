@@ -1,115 +1,111 @@
-Validate = function(data, 
-                    classes, 
-                    method = "knn", 
-                    outer.fold = 3, 
-                    outer.repeats=1, 
-                    inner.fold = 10, 
-                    inner.repeats = 1, 
+CrossvalidationScheme = function(featureData, 
+                    subgroups, 
+                    trainMethod = "pam", 
+                    n_outerFolds = 3, 
+                    outerRepeats= 1, 
+                    innerFolds = 10, 
+                    innerRepeats = 1, 
                     verbose = FALSE, 
-                    filter_method,
-                    knowledge_features)
+                    filterMethods,
+                    knowledgeFeatures)
 {
-  cat(sprintf("Training and validation process using method '%s'", method))
+  # Variables to store all our results in R style
+  validate_accuracy <- vector('numeric', length = outerRepeats * n_outerFolds)
+  method_accuracy <- list()
+  train_accuracy <- vector('numeric', length = outerRepeats * n_outerFolds)
+  results <- list()
+  # Let's not forget setting the super 'random' seed.
+  set.seed(1337)
+
+
   
-  # Make sure we create the same 'random' sets every time we run (reproducable)
-  set.seed(1)
-  
-  # Store predicted accuracy and actual accuracy for all validation runs
-  # Return results including average accuracy and standard deviation
-  results = list()
-  results.train.accuracy = vector('numeric', length = outer.repeats * outer.fold)
-  results.validate.accuracy = vector('numeric', length = outer.repeats * outer.fold)
-  results.method.accuracy <- list()
-  
-  
-  for (run in sequence(outer.repeats)){
-    # Create separate folds for training and validation
-    outer.folds = createFolds(classes, k = outer.fold)
+  for (outerRepeat in sequence(outerRepeats)){  # for1
+    # Creating outerFolds
+    outerFolds = createFolds(subgroups, k = n_outerFolds)
     
-    for (fold in sequence(outer.fold)){
-      if (verbose) cat(sprintf("\nRun %d of %d, fold %d of %d\n", run, outer.repeats, fold, outer.fold))
-      for(fm in filter_method){
-      # Select the train and validation folds for this run/fold
-      validation.fold = outer.folds[[fold]]
-      train.data = data[-validation.fold,]
-      train.classes = classes[-validation.fold]
-      validation.data = data[validation.fold,]
-      validation.classes = classes[validation.fold]      
+    for (outerFold in sequence(n_outerFolds)){ # for2
+      print(paste("STARTING WITH FOLD: ",outerFold))
+      for(filterMethod in filterMethods){  # for3
+      # Split data according to proper fold 
+      validation_outerFold <- outerFolds[[outerFold]]
+      train_featureData <- featureData[-validation_outerFold,]
+      train_subgroups <- subgroups[-validation_outerFold]
+      validation_featureData <- featureData[validation_outerFold,]
+      validation_subgroups <- subgroups[validation_outerFold]      
       
-      
-      if(fm =="rfe"){
+
+      if(filterMethod =="rfe"){
       subsets <- seq(10,100,10)
       ctrl <- rfeControl(functions = rfFuncs,
                          method = "repeatedcv",
                          repeats = 1,
                          verbose = F)
       
-    profile <- rfe(train.data, train.classes,
+      profile <- rfe(train_featureData, train_subgroups,
                        sizes = subsets,
                        rfeControl = ctrl)
       best_features <- predictors(profile)
       }
-      if(fm=="knowledge"){
-        best_features <- knowledge_features
+      if(filterMethod=="knowledge"){
+        best_features <- knowledgeFeatures
       }
       
       
       # Calculate predicted accuracy  
-      # Train the model with the train data and classes using
+      # Train the model with the train featureData and subgroups using
       # selected method
-      fitControl = trainControl(
+      fitControl <- trainControl(
         method = "repeatedcv",
-        number = inner.fold,
+        number = innerFolds,
         #            classProbs = TRUE,
-        repeats = inner.repeats)
-      train.data <- train.data[,best_features]
+        repeats = innerRepeats)
+      train_featureData <- train_featureData[,best_features]
       
     
-      fit = train(train.data, train.classes,
-                  method = method,
+      fit <- train(train_featureData, train_subgroups,
+                  method = trainMethod,
                   trControl = fitControl,
                   tuneLength = 10)
 
      
-      print("done training")
-      performance = fit$results[row.names(fit$finalModel$tuneValue),]
-      i = fold
+      print("##### FINISHED TRAINING #####")
+      performance <- fit$results[row.names(fit$finalModel$tuneValue),]
       
-      results.train.accuracy[i] = performance$Accuracy
-      predict.classes = predict(fit, newdata = validation.data[,best_features])
-      cm = confusionMatrix(predict.classes, validation.classes)
+      train_accuracy[outerFold] <- performance$Accuracy
+      predictSubgroups <- predict(fit, newdata = validation_featureData[,best_features])
+      cm <- confusionMatrix(predictSubgroups, validation_subgroups)
       if (verbose) print(cm)
       
-      # predict.probs = predict(fit, newdata = validation.data, type = "prob")
-      # if (verbose) print(predict.probs)
+      # predict_probs = predict(fit, newdata = validation_featureData, type = "prob")
+      # if (verbose) print(predict_probs)
       
-      results.validate.accuracy[i] = cm$overall['Accuracy']
+      validate_accuracy[outerFold] = cm$overall['Accuracy']
 #       print('##################')
 #       print(cm$overall['Accuracy'])
 #       print(fit)
 #       print('##################')
-      if (fold == 1) results$fit = fit
-      if (fold > 1) if (results.validate.accuracy[i-1] < cm$overall['Accuracy'] ) results$fit = fit
+      if (outerFold == 1) results$fit = fit
+      if (outerFold > 1) if (validate_accuracy[outerFold-1] < cm$overall['Accuracy'] ) results$fit <- fit
       
       print('################## RESULTS ##################')
-      results.method.accuracy[paste(fold,fm,sep = "_")] <- results.validate.accuracy[i]
-      print(paste(fold,fm,results.validate.accuracy[i],length(best_features)))
+      method_accuracy[paste(outerFold,filterMethod,sep = "_")] <- validate_accuracy[outerFold]
+      print(paste(outerFold,filterMethod,validate_accuracy[outerFold],length(best_features)))
       
-    }
-    }
-      }
+    }  # for3
+    }  # for2
+      }  # for1
   
   max(results$fit$results$Accuracy)
   
   print("calculating results")
-  print(results.validate.accuracy)
-  results$MethodAccuracy = results.method.accuracy
-  results$AverageAccuracy = mean(results.validate.accuracy)
-  results$StdDevAccuracy = sd(results.validate.accuracy)
+  print(validate_accuracy)
+  results$MethodAccuracy = method_accuracy
+  results$AverageAccuracy = mean(validate_accuracy)
+  results$StdDevAccuracy = sd(validate_accuracy)
   
-  results$TrainAverageAccuracy = mean(results.train.accuracy)
-  results$StdDevTrainAccuracy = sd(results.train.accuracy)
+  results$TrainAverageAccuracy = mean(train_accuracy)
+  results$StdDevTrainAccuracy = sd(train_accuracy)
   
   return (results)
 }
-?createFolds
+
