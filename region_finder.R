@@ -82,6 +82,18 @@ cols<-unique(cols)
 v_cols <- paste("V",cols,sep = "")
 
 
+selected_features<-comb[cols]
+correlation<-cor(selected_features)
+for(i in seq(ncol(correlation))){
+  j<-c()
+  j<-which(correlation[i,]>=0.95 & correlation[i,]<1.0)
+  if(length(j)>0){
+    print(paste(as.character(i),as.character(j)))
+  }
+}
+v_cols <- paste("V",cols,sep = "")
+
+
 
 # co<-append(co, regionfinder(19,15131445,15172792))
 # co<-append(co, regionfinder(12,25249449,25295121))
