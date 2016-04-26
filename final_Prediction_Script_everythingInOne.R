@@ -185,9 +185,8 @@ results <- CrossvalidationScheme( her2_less[,3:2836],
 
 ############ PREDICTING KNOWLEDGE BASES HER2+ ##################
 HER2_plus <- as.character(rownames(val)[which(val["V2185"]==2)])
-df <- cbind(HER2_plus,rep("HER2+",length(HER2_plus)))
-colnames(df) <- c("Sample","Subgroup")
-write.table(df,file = "predictions_group_5_first.txt",quote = TRUE,sep = "\t",row.names = F,col.names = T)
+her2_df <- as.data.frame(cbind(HER2_plus,rep("HER2+",length(HER2_plus))))
+colnames(her2_df) <- c("Sample","Subgroup")
 
 #################### PRINTING THE LAST PREDICTION Supah Ugly #################### 
 best_features <- v_cols
@@ -199,7 +198,7 @@ final.fit <- train(train_featureData, subgroups, method = "rf", trControl = fitC
 val_call <- as.data.frame(t(validation.call[,-1:-4]))
 predictSubgroups <- predict(final.fit, newdata = val_call[,best_features])
 predictSubgroups_df <- data.frame(Sample = rownames(val_call), Subgroup = predictSubgroups)
-final_results <- rbind(subset(predictSubgroups_df, !(predictSubgroups_df$Sample %in% HER2_plus$Sample)), her2_predictions)
+final_results <- rbind(subset(predictSubgroups_df, !(predictSubgroups_df$Sample %in% her2_df$Sample)), her2_df)
 
 write.table(final_results,file = "final_predictions.txt",quote = TRUE,sep = "\t",row.names = F,col.names = T)
 

@@ -7,8 +7,7 @@ CrossvalidationScheme = function(featureData,
                     innerRepeats = 1, 
                     verbose = FALSE, 
                     filterMethods,
-                    knowledgeFeatures)
-{
+                    knowledgeFeatures){
   # Variables to store all our results in R style
   validate_accuracy <- vector('numeric', length = outerRepeats * n_outerFolds)
   method_accuracy <- list()
@@ -35,14 +34,14 @@ CrossvalidationScheme = function(featureData,
       
 
       if(filterMethod =="rfe"){
-      subsets <- seq(10,100,10)
+      feature_sizes <- seq(10,100,10)
       ctrl <- rfeControl(functions = rfFuncs,
-                         method = "repeatedcv",
+                         method = 'repeatedcv',
                          repeats = 1,
                          verbose = F)
       
       profile <- rfe(train_featureData, train_subgroups,
-                       sizes = subsets,
+                       sizes = feature_sizes,
                        rfeControl = ctrl)
       best_features <- predictors(profile)
       }
@@ -72,31 +71,34 @@ CrossvalidationScheme = function(featureData,
       performance <- fit$results[row.names(fit$finalModel$tuneValue),]
       
       train_accuracy[outerFold] <- performance$Accuracy
+      
+      
       predictSubgroups <- predict(fit, newdata = validation_featureData[,best_features])
       cm <- confusionMatrix(predictSubgroups, validation_subgroups)
       if (verbose) print(cm)
       
       # predict_probs = predict(fit, newdata = validation_featureData, type = "prob")
       # if (verbose) print(predict_probs)
-      
-      validate_accuracy[outerFold] = cm$overall['Accuracy']
-#       print('##################')
-#       print(cm$overall['Accuracy'])
-#       print(fit)
+      # print('################## RESULTS ##################')
+      # print(cm$overall['Accuracy'])
+      validate_accuracy[paste(outerFold,filterMethod,sep = "_")] = cm$overall['Accuracy']
+      print('##################')
+      print(filterMethod)
+      print(cm$overall['Accuracy'])
+      print(cm)
 #       print('##################')
       if (outerFold == 1) results$fit = fit
       if (outerFold > 1) if (validate_accuracy[outerFold-1] < cm$overall['Accuracy'] ) results$fit <- fit
       
-      print('################## RESULTS ##################')
-      method_accuracy[paste(outerFold,filterMethod,sep = "_")] <- validate_accuracy[outerFold]
-      print(paste(outerFold,filterMethod,validate_accuracy[outerFold],length(best_features)))
+      # print('################## RESULTS ##################')
+      method_accuracy[paste(outerFold,filterMethod,sep = "_")] <- validate_accuracy[paste(outerFold,filterMethod,sep = "_")]
+      # print(paste(outerFold,filterMethod,validate_accuracy[paste(outerFold,filterMethod,sep = "_")],length(best_features)))
       
     }  # for3
     }  # for2
-      }  # for1
+  }  # for1
   
   max(results$fit$results$Accuracy)
-  
   print("calculating results")
   print(validate_accuracy)
   results$MethodAccuracy = method_accuracy
