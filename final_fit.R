@@ -29,3 +29,33 @@ write.table(final_results,file = "final_predictions.txt",quote = TRUE,sep = "\t"
 
 write.table()
 
+getTree(final.fit)
+plot(getTree(final.fit$finalModel))
+varImpPlot(final.fit$finalModel)
+partialPlot(final.fit$finalModel, train_featureData, x.var=V2185)
+?partialPlot
+
+MDSplot(final.fit$finalModel, subgroups)
+
+subgroups = factor(merged[merged$Subgroup != 'HER2+', 'Subgroup'])
+all.fit <- train(comb[,v_cols], merged$Subgroup, method = "rf", trControl = fitControl,tuneLength = 10)
+
+par(mfrow=c(1,2))
+varImpPlot(final.fit$finalModel,
+           main="Variable Importance without HER2+")
+varImpPlot(all.fit$finalModel,
+           main="Variable Importance with HER2+")
+
+important_vars <- rownames(varImp(all.fit$finalModel))
+
+for (i in seq_along(important_vars)){
+  partialPlot(all.fit$finalModel, comb, x.var=important_vars[i], main = c("Partial Dependence on ", important_vars[i]),
+              xlab = "Partial Dependence")
+}
+
+partialPlot(final.fit$finalModel, train_featureData, x.var=V2185,
+            main = "Variable Importance in RF without HER2+")
+partialPlot(all.fit$finalModel, train_featureData, x.var=V2185)
+
+plot(getTree(final.fit$finalModel))
+getTree(final.fit$finalModel)
